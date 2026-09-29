@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title id="app-title">ফ্যান সুপার চ্যাট</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <style>
+        body { background-color: #0b0f19; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .phone-frame { width: 100%; max-width: 414px; height: 100vh; max-height: 896px; background: #111827; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7); display: flex; flex-direction: column; position: relative; overflow: hidden; border: 4px solid #1f2937; }
+        @media(min-width: 450px) { .phone-frame { border-radius: 40px; } }
+        .spinner { width: 18px; height: 18px; border: 3px solid rgba(0,0,0,0.3); border-radius: 50%; border-top-color: #000; animation: spin 0.8s linear infinite; display: inline-block; vertical-align: middle; }
+        .spinner-white { width: 18px; height: 18px; border: 3px solid rgba(255,255,255,0.3); border-radius: 50%; border-top-color: #fff; animation: spin 0.8s linear infinite; display: inline-block; vertical-align: middle; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div class="phone-frame text-slate-100">
+        <div class="bg-slate-900 px-4 py-3 border-b border-slate-800 flex justify-between items-center z-10">
+            <h1 class="font-bold text-sm text-amber-400" id="app-header-name"><i class="fa-solid fa-crown"></i> ফ্যান সুপার চ্যাট</h1>
+            <span id="user-status-badge" class="text-[10px] bg-slate-800 px-2 py-1 rounded text-slate-400">অতিথি</span>
+        </div>
+
+        <div class="flex-grow overflow-y-auto p-4 space-y-4" id="user-content-area">
+            <!-- Login View -->
+            <div id="u-login-view" class="space-y-4 pt-6">
+                <div class="text-center">
+                    <h2 class="text-2xl font-bold text-white">ইউজার লগইন</h2>
+                    <p class="text-xs text-slate-400">আপনার ফ্যান অ্যাকাউন্টে প্রবেশ করুন</p>
+                </div>
+                <div class="bg-slate-800/60 p-4 rounded-2xl border border-slate-700 space-y-3">
+                    <input type="text" id="ul-phone" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500" placeholder="মোবাইল নাম্বার">
+                    <input type="password" id="ul-pass" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500" placeholder="পাসওয়ার্ড">
+                    <button id="btn-login" onclick="userLogin()" class="w-full bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold py-2.5 rounded-xl text-sm cursor-pointer transition">লগইন করুন</button>
+                    <p class="text-center text-xs text-slate-400? <a href="#" onclick="toggleAuthView('reg')" class="text-amber-400 font-bold">সাইন-আপ করুন</a></p>
+                </div>
+            </div>
+
+            <!-- Register View -->
+            <div id="u-reg-view" class="hidden space-y-3 pt-2">
+                <h2 class="text-xl font-bold text-amber-400 text-center">নতুন অ্যাকাউন্ট</h2>
+                <div class="bg-slate-800/60 p-4 rounded-2xl border border-slate-700 space-y-3">
+                    <input type="text" id="ur-name" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white" placeholder="আপনার নাম">
+                    <input type="text" id="ur-phone" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white" placeholder="মোবাইল নাম্বার">
+                    <input type="password" id="ur-pass" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white" placeholder="পাসওয়ার্ড">
+                    <button id="btn-reg" onclick="userRegister()" class="w-full bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold py-2.5 rounded-xl text-sm cursor-pointer transition">সাইন-আপ সম্পন্ন করুন</button>
+                    <p class="text-center text-xs text-slate-400">ইতিমধ্যে অ্যাকাউন্ট আছে? <a href="#" onclick="toggleAuthView('log')" class="text-amber-400 font-bold">লগইন</a></p>
+                </div>
+            </div>
+
+            <!-- Dashboard View -->
+            <div id="u-dash-view" class="hidden space-y-4">
+                <div class="bg-slate-800 p-4 rounded-2xl border border-slate-700 flex justify-between items-center shadow-lg">
+                    <div>
+                        <h3 class="font-bold text-white text-base" id="lbl-uname">ইউজার</h3>
+                        <p class="text-xs text-amber-400 font-semibold mt-1"><i class="fa-solid fa-wallet"></i> ব্যালেন্স: <span id="lbl-bal">0</span> ৳</p>
+                    </div>
+                    <button id="btn-logout" onclick="userLogout()" class="bg-red-500/20 hover:bg-red-500 text-red-400 hover:text-white px-3 py-2 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5"><i class="fa-solid fa-right-from-bracket"></i> লগআউট</button>
+                </div>
+
+                <!-- Channel Banner -->
+                <div id="channel-banner" class="hidden bg-amber-500/10 border border-amber-500/30 p-3 rounded-xl flex items-center justify-between">
+                    <div>
+                        <h4 class="text-xs font-bold text-amber-400" id="banner-title">অফিশিয়াল চ্যানেল</h4>
+                        <p class="text-[10px] text-slate-300">ভিডিও দেখতে ভিজিট করুন</p>
+                    </div>
+                    <a id="ch-link-btn" href="#" target="_blank" class="bg-amber-500 text-slate-950 px-3 py-1 rounded-lg text-xs font-bold">ভিজিট</a>
+                </div>
+
+                <!-- Top 10 Leaderboard -->
+                <div class="bg-slate-800/50 p-3.5 rounded-2xl border border-slate-700 space-y-2">
+                    <h4 class="text-xs font-bold text-amber-400"><i class="fa-solid fa-trophy"></i> টপ ১০ ফ্যান লিডারবোর্ড</h4>
+                    <div id="top-ten-list" class="space-y-1 text-xs text-slate-300 max-h-32 overflow-y-auto">লোড হচ্ছে...</div>
+                </div>
+
+                <!-- Deposit Section -->
+                <div class="bg-slate-800/50 p-3.5 rounded-2xl border border-slate-700 space-y-2.5">
+                    <h4 class="text-xs font-bold text-amber-400">টাকা ডিপোজিট করুন</h4>
+                    <p class="text-[10px] text-slate-400">বিকাশ/নগদ সেন্ড মানি: <b class="text-white" id="lbl-bkash">01700000000</b></p>
+                    <input type="number" id="dep-amt" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white" placeholder="টাকার পরিমাণ">
+                    <input type="text" id="dep-trx" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white" placeholder="TrxID দিন">
+                    <button onclick="submitDeposit()" class="w-full bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold py-2 rounded-xl text-xs cursor-pointer transition">ডিপোজিট রিকোয়েস্ট পাঠান</button>
+                </div>
+
+                <!-- Super Chat Section -->
+                <div class="bg-slate-800/50 p-3.5 rounded-2xl border border-slate-700 space-y-2.5">
+                    <h4 class="text-xs font-bold text-amber-400">সুপার চ্যাট পাঠান</h4>
+                    <input type="number" id="sc-amt" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white" placeholder="পরিমাণ (টাকা)">
+                    <textarea id="sc-msg" rows="2" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white" placeholder="আপনার মেসেজ..."></textarea>
+                    <button onclick="sendSuperChat()" class="w-full bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-bold py-2 rounded-xl text-xs cursor-pointer transition">সুপার চ্যাট পাঠান</button>
+                </div>
+
+                <!-- Live Super Chat Feed -->
+                <div class="bg-slate-800/50 p-3.5 rounded-2xl border border-slate-700 space-y-2">
+                    <h4 class="text-xs font-bold text-amber-400"><i class="fa-solid fa-comments"></i> লাইভ সুপার চ্যাট ফিড</h4>
+                    <div id="live-sc-feed" class="space-y-2 max-h-40 overflow-y-auto text-xs">কোনো সুপার চ্যাট নেই</div>
+                </div>
+
+                <!-- Inbox Replies -->
+                <div class="bg-slate-800/50 p-3.5 rounded-2xl border border-slate-700 space-y-2">
+                    <h4 class="text-xs font-bold text-slate-400">এডমিন ইনবক্স রিপ্লাই:</h4>
+                    <div id="user-inbox" class="space-y-1 text-xs text-slate-300">কোনো রিপ্লাই নেই</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyDummyKeyForSkillHubAppB9E3A",
+            authDomain: "skillhub-app-b9e3a.firebaseapp.com",
+            databaseURL: "https://skillhub-app-b9e3a-default-rtdb.firebaseio.com",
+            projectId: "skillhub-app-b9e3a",
+            storageBucket: "skillhub-app-b9e3a.appspot.com",
+            messagingSenderId: "1234567890",
+            appId: "1:1234567890:web:abcdef"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        let currentPhone = localStorage.getItem('chat_user_phone');
+        if(currentPhone) {
+            db.ref('users/' + currentPhone).once('value').then(snap => {
+                if(snap.exists()) loadUserDashboard(currentPhone);
+                else localStorage.removeItem('chat_user_phone');
+            });
+        }
+
+        // Load Global Settings (Name, Link, Bkash)
+        db.ref('settings').on('value', snap => {
+            if(snap.exists()) {
+                let s = snap.val();
+                if(s.appName) {
+                    document.getElementById('app-title').innerText = s.appName;
+                    document.getElementById('app-header-name').innerHTML = `<i class="fa-solid fa-crown"></i> ${s.appName}`;
+                }
+                if(s.bkashNum) document.getElementById('lbl-bkash').innerText = s.bkashNum;
+                if(s.channelLink) {
+                    document.getElementById('channel-banner').classList.remove('hidden');
+                    document.getElementById('ch-link-btn').href = s.channelLink;
+                }
+            }
+        });
+
+        function toggleAuthView(v) {
+            document.getElementById('u-login-view').classList.toggle('hidden', v !== 'log');
+            document.getElementById('u-reg-view').classList.toggle('hidden', v !== 'reg');
+        }
+
+        function userRegister() {
+            let name = document.getElementById('ur-name').value.trim();
+            let phone = document.getElementById('ur-phone').value.trim();
+            let pass = document.getElementById('ur-pass').value.trim();
+            if(!name || !phone || !pass) return alert('সব ফিল্ড পূরণ করুন!');
+
+            let btn = document.getElementById('btn-reg');
+            btn.innerHTML = `<span class="spinner"></span> সাইন-ইন হচ্ছে...`;
+            btn.disabled = true;
+
+            db.ref('users/' + phone).once('value', snapshot => {
+                btn.innerHTML = 'সাইন-আপ সম্পন্ন করুন';
+                btn.disabled = false;
+                if(snapshot.exists()) {
+                    alert('এই নাম্বারে ইতিমধ্যে অ্যাকাউন্ট আছে!');
+                    toggleAuthView('log');
+                } else {
+                    db.ref('users/' + phone).set({ name, phone, pass, balance: 0, totalDonated: 0, status: 'active' }, () => {
+                        alert('রেজিস্ট্রেশন সফল হয়েছে!');
+                        toggleAuthView('log');
+                    });
+                }
+            });
+        }
+
+        function userLogin() {
+            let phone = document.getElementById('ul-phone').value.trim();
+            let pass = document.getElementById('ul-pass').value.trim();
+            if(!phone || !pass) return alert('নাম্বার ও পাসওয়ার্ড দিন!');
+
+            let btn = document.getElementById('btn-login');
+            btn.innerHTML = `<span class="spinner"></span> লগইন হচ্ছে...`;
+            btn.disabled = true;
+
+            db.ref('users/' + phone).once('value', snapshot => {
+                btn.innerHTML = 'লগইন করুন';
+                btn.disabled = false;
+                if(snapshot.exists()) {
+                    let u = snapshot.val();
+                    if(u.status === 'blocked') return alert('আপনার অ্যাকাউন্টটি ব্লক করা হয়েছে!');
+                    if(u.pass === pass) {
+                        localStorage.setItem('chat_user_phone', phone);
+                        loadUserDashboard(phone);
+                    } else {
+                        alert('ভুল পাসওয়ার্ড!');
+                    }
+                } else {
+                    alert('অ্যাকাউন্ট পাওয়া যায়নি!');
+                }
+            });
+        }
+
+        function userLogout() {
+            let btn = document.getElementById('btn-logout');
+            btn.innerHTML = `<span class="spinner-white"></span> লগআউট...`;
+            setTimeout(() => {
+                localStorage.removeItem('chat_user_phone');
+                location.reload();
+            }, 500);
+        }
+
+        function loadUserDashboard(phone) {
+            document.getElementById('u-login-view').classList.add('hidden');
+            document.getElementById('u-reg-view').classList.add('hidden');
+            document.getElementById('u-dash-view').classList.remove('hidden');
+            document.getElementById('user-status-badge').innerText = 'অনলাইন';
+
+            db.ref('users/' + phone).on('value', snap => {
+                if(snap.exists()) {
+                    let u = snap.val();
+                    document.getElementById('lbl-uname').innerText = u.name;
+                    document.getElementById('lbl-bal').innerText = u.balance || 0;
+                }
+            });
+
+            // Top 10 Leaderboard
+            db.ref('users').orderByChild('totalDonated').limitToLast(10).on('value', snap => {
+                let list = document.getElementById('top-ten-list');
+                list.innerHTML = '';
+                let users = [];
+                snap.forEach(child => { users.push(child.val()); });
+                users.reverse();
+                if(users.length > 0) {
+                    users.forEach((u, index) => {
+                        list.innerHTML += `<div class="flex justify-between bg-slate-900 p-1.5 rounded border border-slate-700">
+                            <span>#${index+1} ${u.name}</span>
+                            <span class="text-amber-400 font-bold">${u.totalDonated || 0} ৳</span>
+                        </div>`;
+                    });
+                } else {
+                    list.innerHTML = '<span class="text-slate-500">ডেটা নেই</span>';
+                }
+            });
+
+            // Live Super Chat Feed
+            db.ref('superchats').limitToLast(15).on('value', snap => {
+                let feed = document.getElementById('live-sc-feed');
+                feed.innerHTML = '';
+                if(snap.exists()) {
+                    snap.forEach(child => {
+                        let sc = child.val();
+                        let bg = sc.amt >= 500 ? 'bg-red-950/60 border-red-500/50' : (sc.amt >= 100 ? 'bg-amber-950/60 border-amber-500/50' : 'bg-slate-900 border-slate-700');
+                        feed.innerHTML += `<div class="p-2 rounded border ${bg} space-y-0.5">
+                            <div class="flex justify-between font-bold text-amber-400"><span>${sc.name}</span><span>${sc.amt} ৳</span></div>
+                            <p class="text-slate-200">${sc.msg}</p>
+                        </div>`;
+                    });
+                    feed.scrollTop = feed.scrollHeight;
+                } else {
+                    feed.innerHTML = '<span class="text-slate-500">কোনো সুপার চ্যাট নেই</span>';
+                }
+            });
+
+            // Inbox Replies
+            db.ref('replies/' + phone).on('value', snap => {
+                let box = document.getElementById('user-inbox');
+                box.innerHTML = '';
+                if(snap.exists()) {
+                    snap.forEach(child => {
+                        box.innerHTML += `<div class="bg-slate-900 p-2 rounded border border-amber-500/30"><b class="text-amber-400">এডমিন:</b> ${child.val().text}</div>`;
+                    });
+                } else {
+                    box.innerHTML = '<span class="text-slate-500">কোনো রিপ্লাই নেই</span>';
+                }
+            });
+        }
+
+        function submitDeposit() {
+            let amt = parseFloat(document.getElementById('dep-amt').value);
+            let trx = document.getElementById('dep-trx').value.trim();
+            if(!amt || !trx) return alert('পরিমাণ ও TrxID দিন!');
+
+            db.ref('users/' + currentPhone).once('value', snap => {
+                let name = snap.val().name;
+                db.ref('deposits').push({ phone: currentPhone, name, amt, trx, status: 'pending' }, () => {
+                    alert('ডিপোজিট রিকোয়েস্ট সফলভাবে পাঠানো হয়েছে!');
+                    document.getElementById('dep-amt').value = '';
+                    document.getElementById('dep-trx').value = '';
+                });
+            });
+        }
+
+        function sendSuperChat() {
+            let amt = parseFloat(document.getElementById('sc-amt').value);
+            let msg = document.getElementById('sc-msg').value.trim() || 'সুপার চ্যাট গিফট';
+            if(!amt) return alert('টাকার পরিমাণ দিন!');
+
+            db.ref('users/' + currentPhone).once('value', snap => {
+                let u = snap.val();
+                let currentBal = u.balance || 0;
+                if(currentBal < amt) return alert('পর্যাপ্ত ব্যালেন্স নেই!');
+
+                let newBal = currentBal - amt;
+                let newTotalDonated = (u.totalDonated || 0) + amt;
+
+                db.ref('users/' + currentPhone).update({ balance: newBal, totalDonated: newTotalDonated });
+                db.ref('superchats').push({ phone: currentPhone, name: u.name, amt, msg });
+                alert('সুপার চ্যাট পাঠানো হয়েছে!');
+                document.getElementById('sc-amt').value = '';
+                document.getElementById('sc-msg').value = '';
+            });
+        }
+    </script>
+</body>
+</html>
